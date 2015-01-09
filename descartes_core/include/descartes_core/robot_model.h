@@ -51,9 +51,6 @@ public:
   static bool equal(const std::vector<double> &lhs, const std::vector<double> &rhs,
                                         const double tol);
 
-  RobotModel()
-  {
-  }
   ;
   virtual ~RobotModel()
   {
@@ -107,6 +104,16 @@ public:
    * @return True if valid
    */
   virtual bool isValid(const Eigen::Affine3d &pose) const = 0;
+
+  virtual void initialize(const std::string robot_description, const std::string& group_name,
+                          const std::string& world_frame,const std::string& tcp_frame) = 0;
+
+protected:
+
+
+  RobotModel()
+  {
+  }
 
 };
 
