@@ -29,7 +29,7 @@
 namespace descartes_core
 {
 
-//const int MAX_REPLANNING_ATTEMPTS = 100;
+const int MAX_REPLANNING_ATTEMPTS = 20;
 const int INVALID_INDEX = -1;
 const double MAX_JOINT_CHANGE = M_PI_4;
 
@@ -383,7 +383,7 @@ bool SparsePlanner::getOrderedSparseArray(std::vector<TrajectoryPtPtr>& sparse_a
   auto predicate = [&first_id](const std::pair<TrajectoryPt::ID,CartesianPointInformation>& p)
     {
       const auto& info = p.second;
-      if(info.links_.id_previous == boost::uuids::nil_uuid())
+      if((info.links_.id_previous == boost::uuids::nil_uuid()) && (!p.first.is_nil()))
       {
         first_id = p.first;
         return true;
@@ -483,7 +483,8 @@ bool SparsePlanner::plan()
   // solving coarse trajectory
   bool replan = true;
   bool succeeded = false;
-  int max_replanning_attempts = cart_points_.size()/2;
+  //int max_replanning_attempts = cart_points_.size()/2;
+  int max_replanning_attempts = MAX_REPLANNING_ATTEMPTS;
   int replanning_attempts = 0;
   while(replan && getSparseSolutionArray(sparse_solution_array_))
   {
