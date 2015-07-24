@@ -102,7 +102,7 @@ bool SparsePlanner::addPointAfter(const TrajectoryPt::ID& ref_id,TrajectoryPtPtr
   }
   auto pos = cart_points_.begin();
   std::advance(pos,index + 1);
-  cart_points_.insert(pos,cp);
+  auto new_pos = cart_points_.insert(pos,cp);
 
   // replanning
   if(addTrajectory(cp,prev_id,next_id) && plan())
@@ -114,6 +114,26 @@ bool SparsePlanner::addPointAfter(const TrajectoryPt::ID& ref_id,TrajectoryPtPtr
   }
   else
   {
+    // recovery     
+    cart_points_.erase(new_pos);
+    if(removeTrajectory(cp) )
+    {
+
+      if(plan())
+      {
+        ROS_DEBUG_STREAM("Recovery removal of invalid point succeeded");
+      }
+      else
+      {        
+        ROS_ERROR_STREAM("Recovery planning after removal of invalid point failed, planner is in a fault state");
+      }
+
+    }
+    else
+    {
+      ROS_ERROR_STREAM("Recovery removal of invalid point failed, planner is in a fault state");
+    }
+
     return false;
   }
 
@@ -146,7 +166,7 @@ bool SparsePlanner::addPointBefore(const TrajectoryPt::ID& ref_id,TrajectoryPtPt
   }
   auto pos = cart_points_.begin();
   std::advance(pos,index);
-  cart_points_.insert(pos,cp);
+  auto new_pos =  cart_points_.insert(pos,cp);
 
   if(addTrajectory(cp,prev_id,next_id) && plan())
   {
@@ -157,6 +177,25 @@ bool SparsePlanner::addPointBefore(const TrajectoryPt::ID& ref_id,TrajectoryPtPt
   }
   else
   {
+    // recovery 
+    cart_points_.erase(new_pos);
+    if(removeTrajectory(cp) )
+    {
+
+      if(plan())
+      {
+        ROS_DEBUG_STREAM("Recovery removal of invalid point succeeded");
+      }
+      else
+      {        
+        ROS_ERROR_STREAM("Recovery planning after removal of invalid point failed, planner is in a fault state");
+      }
+
+    }
+    else
+    {
+      ROS_ERROR_STREAM("Recovery removal of invalid point failed, planner is in a fault state");
+    }
     return false;
   }
 
@@ -524,9 +563,34 @@ bool SparsePlanner::plan()
 
           break;
       case int(InterpolationResult::SUCCESS):
+      {
           replan = false;
           succeeded = true;
+
+          // check for large joint changes
+          std::vector<double> joints1, joints2;
+          for(unsigned int i =  1; i < cart_points_.size() ; i++)
+          {
+            joints1.clear();
+            joints2.clear();
+            auto& jp1 = joint_points_map_[cart_points_[i-1]->getID()];
+            auto& jp2 = joint_points_map_[cart_points_[i]->getID()];
+
+            jp1.getNominalJointPose(joints1,*robot_model_,joints1);
+            jp2.getNominalJointPose(joints2,*robot_model_,joints2);
+
+            if(!checkJointChanges(joints1,joints2,MAX_JOINT_CHANGE))
+            {
+              replan = false;
+              succeeded = false;  
+              ROS_ERROR_STREAM("Max allowed joint changes exceeded between points at locations "<< i-1 << " and " << i);
+              break;           
+            }
+
+          }
+      }
           break;
+      
       case int(InterpolationResult::ERROR):
           replan = false;
           succeeded = false;
